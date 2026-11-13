@@ -1,0 +1,59 @@
+<!doctype html>
+<html>
+<head>
+  <base target="_top">
+  <style>
+    body{font:14px Arial,sans-serif;color:#182c27;margin:20px;background:#f7f7f3}
+    h2{font-size:21px;margin:0 0 8px}.meta,.note,.checklist{background:#fff;border:1px solid #d9e0da;border-radius:9px;padding:14px;margin:12px 0}
+    .note{white-space:pre-wrap;max-height:340px;overflow:auto;font:14px/1.55 Arial,sans-serif}
+    .hint{line-height:1.45;color:#52645e}.error{color:#9b372b}.ok{color:#246247}
+    button{padding:9px 13px;background:#285f50;color:white;border:0;border-radius:6px;cursor:pointer;margin:4px 4px 4px 0}
+    button:disabled{opacity:.55}label{display:block;margin:10px 0}
+  </style>
+</head>
+<body>
+  <h2>Review copy-ready chart note</h2>
+  <p class="hint">This window prepares a draft for manual chart entry. It does not send or upload the note, and it cannot verify that the note was signed or saved in the clinical system.</p>
+  <div id="meta" class="meta">Loading draft…</div>
+  <div id="checks" class="checklist"></div>
+  <div id="note" class="note"></div>
+  <div>
+    <button id="approve" type="button" disabled>Approve copy after review</button>
+    <button id="copy" type="button" disabled>Copy reviewed note</button>
+    <button id="attest" type="button" disabled>I entered it in the correct chart</button>
+  </div>
+  <p id="status" role="status"></p>
+  <script>
+    const draftId='<?= draftId ?>';let preview=null;let clinicianToken='';let approved=false;let copied=false;
+    function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+    function say(text,kind){const el=document.getElementById('status');el.className=kind||'';el.textContent=text;}
+    google.script.run.withSuccessHandler(show).withFailureHandler(e=>say(e.message||String(e),'error')).mgGetDraftPreview(draftId);
+    function show(p){preview=p;document.getElementById('meta').innerHTML=`<strong>Client ID:</strong> ${esc(p.patientReference)}<br><strong>Encounter:</strong> ${esc(p.encounterReference)}<br><strong>Template:</strong> ${esc(p.templateVersion)}<br><strong>Sources:</strong> ${esc((p.sourceReferences||[]).join(', ')||'None listed')}<br><strong>State:</strong> ${esc(p.state)}`;
+      document.getElementById('checks').innerHTML='<strong>Required review checks</strong>'+p.reviewChecklist.map((x,i)=>`<label><input type="checkbox" data-check="${i}"> ${esc(x)}</label>`).join('');
+      document.getElementById('note').textContent=(p.draft&&p.draft.text)||JSON.stringify(p.draft,null,2);
+      document.getElementById('approve').disabled=!p.previewToken||['chart_handoff_reported','cancelled'].includes(p.state);
+      document.getElementById('copy').disabled=p.state!=='approved_for_manual_handoff';
+    }
+    document.getElementById('approve').addEventListener('click',()=>{
+      const checks=[...document.querySelectorAll('[data-check]')].map(x=>x.checked);
+      const typed=prompt('To approve this exact draft for manual chart entry, type: COPY TO CHART '+draftId);
+      if(typed!==`COPY TO CHART ${draftId}`){say('Approval cancelled.','error');return;}
+      document.getElementById('approve').disabled=true;
+      google.script.run.withSuccessHandler(()=>{
+        google.script.run.withSuccessHandler(r=>{clinicianToken=r.confirmationToken;approved=true;document.getElementById('copy').disabled=false;say('Reviewed copy is ready. It has not been entered in the chart.','ok');}).withFailureHandler(e=>{say(e.message||String(e),'error');document.getElementById('approve').disabled=false;}).mgApproveDraftForManualHandoff(draftId,undefined,typed);
+      }).withFailureHandler(e=>{say(e.message||String(e),'error');document.getElementById('approve').disabled=false;}).mgMarkDraftReviewed(draftId,undefined,preview.previewToken,checks);
+    });
+    document.getElementById('copy').addEventListener('click',async()=>{
+      if(!approved)return;const text=(preview.draft&&preview.draft.text)||'';
+      try{await navigator.clipboard.writeText(text);copied=true;document.getElementById('attest').disabled=false;say('Copied to clipboard. Paste it into the verified chart, complete the EHR signing step, then attest below.','ok');}
+      catch(e){say('Clipboard access was unavailable. Select and copy the note above, then paste it into the verified chart.','error');}
+    });
+    document.getElementById('attest').addEventListener('click',()=>{
+      if(!copied)return;const typed=prompt('After pasting into the correct chart, type: RECORDED IN CHART '+draftId);
+      if(typed!==`RECORDED IN CHART ${draftId}`){say('Attestation cancelled.','error');return;}
+      document.getElementById('attest').disabled=true;
+      google.script.run.withSuccessHandler(()=>say('Chart-entry attestation recorded. This is not an EHR receipt or signature record.','ok')).withFailureHandler(e=>{say(e.message||String(e),'error');document.getElementById('attest').disabled=false;}).mgRecordManualChartHandoff(draftId,undefined,clinicianToken,typed);
+    });
+  </script>
+</body>
+</html>

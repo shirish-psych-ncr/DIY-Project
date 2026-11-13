@@ -1,0 +1,53 @@
+<!doctype html>
+<html>
+<head>
+  <base target="_top">
+  <style>
+    body{font:14px Arial,sans-serif;color:#182c27;margin:20px;background:#f7f7f3}
+    h2{margin:0 0 8px;font-size:21px}.notice{line-height:1.45;color:#455b52}
+    .panel{background:#fff;border:1px solid #d9e0da;border-radius:10px;padding:14px;margin:12px 0}
+    input[type=text],input[type=file]{display:block;margin:7px 0 12px;width:100%;box-sizing:border-box;padding:9px}
+    button{padding:10px 14px;background:#285f50;color:#fff;border:0;border-radius:6px;cursor:pointer}
+    button:disabled{opacity:.55}.error{color:#9b372b}.ok{color:#246247}.small{font-size:12px;color:#52645e}
+    #preview{max-height:260px;overflow:auto;white-space:pre-wrap;background:#fff;border:1px solid #d9e0da;border-radius:8px;padding:12px}
+    label{display:block;margin:10px 0}.status{font-weight:700}
+  </style>
+</head>
+<body>
+  <h2>Import therapist-reviewed assessment summary</h2>
+  <p class="notice">Choose the JSON handoff exported from the assessment app. It contains score summaries and rule-based differential prompts only; it does not contain item answers, a Client ID, or client-entered free text. The file is read in this page and is saved into this workbook only when you confirm.</p>
+  <div id="featureStatus" class="panel">Checking settings…</div>
+  <section class="panel">
+    <label for="file">Assessment summary JSON</label><input id="file" type="file" accept=".json,application/json">
+    <label for="clientId">Exact Client ID from Client Tracker</label><input id="clientId" type="text" autocomplete="off" maxlength="100">
+    <div id="preview" aria-live="polite">Select a file to preview its source, scores and clinician-review prompts.</div>
+    <label><input id="confirm" type="checkbox"> I reviewed this summary and confirmed the Client ID against the clinical record.</label>
+    <button id="import" type="button" disabled>Import reviewed summary</button>
+    <p id="result" role="status"></p>
+  </section>
+  <p class="small">Imported score rows are marked clinician-verified only after this confirmation. Diagnostic suggestions remain review prompts and do not create or confirm a diagnosis. If the import reports a partial failure, do not retry until the import ledger has been reconciled.</p>
+  <script>
+    let exportData=null; let settings={scaleImportEnabled:false,diagnosticPromptsEnabled:false};
+    const file=document.getElementById('file'),button=document.getElementById('import');
+    function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+    function refresh(){button.disabled=!(settings.scaleImportEnabled&&exportData&&document.getElementById('clientId').value.trim()&&document.getElementById('confirm').checked);}
+    google.script.run.withSuccessHandler(s=>{settings=s;document.getElementById('featureStatus').innerHTML=s.scaleImportEnabled?'<span class="ok">Scale summary import is enabled.</span>':'<span class="error">Scale summary import is disabled. An administrator must enable it in Script Properties after review.</span>';refresh();}).withFailureHandler(e=>{document.getElementById('featureStatus').textContent=e.message||String(e);}).mgGetAssessmentImportSettings();
+    file.addEventListener('change',()=>{
+      document.getElementById('result').textContent='';
+      if(!file.files.length){exportData=null;refresh();return;}
+      const reader=new FileReader();reader.onload=()=>{try{
+        const parsed=JSON.parse(String(reader.result));
+        if(parsed.format!=='mind-grace-epcss-clinician-handoff'||parsed.exportVersion!==1)throw new Error('Unsupported export format.');
+        exportData=parsed;
+        const scores=(parsed.scoreResults||[]).map(s=>`${s.measureLabel||s.measureId}: ${(s.outputs||[]).map(o=>`${o.name} ${o.score}${o.severity?' — '+o.severity:''}`).join('; ')}`).join('\n');
+        const prompts=(parsed.differentialPrompts||[]).map(d=>`Prompt: ${d.label}; source: ${(d.sources||[]).join(', ')||'not stated'}; rationale: ${d.rationale||'Rule-triggered source flag; clinician review required.'}; references: ${[d.references?.dsm5,d.references?.icd11].filter(Boolean).join(' / ')||'none supplied'}`).join('\n');
+        document.getElementById('preview').textContent=`Source: ${parsed.sourceApp} ${parsed.appVersion}\nData version: ${parsed.dataVersion}; language: ${parsed.locale}; exported: ${parsed.generatedAt}\nScores: ${(parsed.scoreResults||[]).length}\nDifferential prompts: ${(parsed.differentialPrompts||[]).length}\n\n${scores}\n\n${prompts}\n\nThese suggestions are not diagnoses. Tier values are navigation labels, not probabilities.`;
+      }catch(e){exportData=null;document.getElementById('preview').textContent=e.message||String(e);}refresh();};reader.readAsText(file.files[0]);
+    });
+    document.getElementById('clientId').addEventListener('input',refresh);document.getElementById('confirm').addEventListener('change',refresh);
+    button.addEventListener('click',()=>{if(!exportData)return;button.disabled=true;document.getElementById('result').textContent='Importing…';
+      google.script.run.withSuccessHandler(r=>{document.getElementById('result').innerHTML='<span class="ok">Imported. Scores: '+esc(r.scoreCount)+'; prompts: '+esc(r.promptCount)+'.</span>';exportData=null;file.value='';document.getElementById('preview').textContent='Import complete.';}).withFailureHandler(e=>{document.getElementById('result').innerHTML='<span class="error">'+esc(e.message||String(e))+'</span>';refresh();}).mgImportScaleExport(exportData,document.getElementById('clientId').value.trim(),document.getElementById('confirm').checked);
+    });
+  </script>
+</body>
+</html>

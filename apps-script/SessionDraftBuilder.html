@@ -1,0 +1,39 @@
+<!doctype html>
+<html><head><base target="_top"><style>
+  body{font:14px Arial,sans-serif;color:#182c27;margin:18px;background:#f7f7f3}
+  h2{font-size:21px;margin:0 0 8px}.hint{line-height:1.45;color:#52645e}
+  .panel{background:#fff;border:1px solid #d9e0da;border-radius:9px;padding:14px;margin:12px 0}
+  label{display:block;font-weight:700;margin:10px 0 5px}input,textarea{box-sizing:border-box;width:100%;padding:9px;border:1px solid #aab8ae;border-radius:5px;font:14px Arial,sans-serif}
+  textarea{min-height:66px;resize:vertical}button{padding:10px 14px;background:#285f50;color:white;border:0;border-radius:6px;cursor:pointer}button:disabled{opacity:.55}.error{color:#9b372b}.ok{color:#246247}
+</style></head><body>
+  <h2>Prepare a source-labelled session draft</h2>
+  <p class="hint">Enter only information the therapist has reviewed for this encounter. Put one bullet per line. This saves an unsigned draft in the restricted workflow workbook; it does not enter the clinical record.</p>
+  <div id="settings" class="panel">Checking access and feature status…</div>
+  <form id="form" class="panel">
+    <label for="clientId">Exact Client ID from Client Tracker</label><input id="clientId" maxlength="100" autocomplete="off" required>
+    <label for="encounter">Encounter reference (date or clinic reference)</label><input id="encounter" maxlength="240" required>
+    <label for="report">Client report</label><textarea id="report" placeholder="Client-reported information only"></textarea>
+    <label for="observation">Clinician observation</label><textarea id="observation" placeholder="Therapist-observed facts only"></textarea>
+    <label for="interventions">Session work actually delivered</label><textarea id="interventions"></textarea>
+    <label for="progress">Goal progress and evidence/source</label><textarea id="progress"></textarea>
+    <label for="plan">Agreed next step or plan</label><textarea id="plan"></textarea>
+    <label for="sources">Source references (one per line)</label><textarea id="sources" placeholder="For example: session worksheet, measure name/version/date"></textarea>
+    <button id="create" type="submit" disabled>Save draft for review</button>
+    <p id="status" role="status"></p>
+  </form>
+  <script>
+    const form=document.getElementById('form'),button=document.getElementById('create');let settings={draftBuilderEnabled:false};
+    let requestId=crypto.randomUUID?crypto.randomUUID():`draft-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    function lines(id){return document.getElementById(id).value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);}
+    function say(text,kind){const e=document.getElementById('status');e.className=kind||'';e.textContent=text;}
+    google.script.run.withSuccessHandler(s=>{settings=s;document.getElementById('settings').textContent=s.draftBuilderEnabled?'Draft builder is enabled. Every draft still requires therapist review and signing in the clinical system.':'Draft builder is disabled. Enable it only in a reviewed test copy.';button.disabled=!s.draftBuilderEnabled;}).withFailureHandler(e=>{document.getElementById('settings').textContent=e.message||String(e);}).mgGetDraftBuilderSettings();
+    form.addEventListener('submit',event=>{event.preventDefault();button.disabled=true;say('Saving draft…');
+      const input={requestId,internalRecordId:document.getElementById('clientId').value.trim(),encounterRef:document.getElementById('encounter').value.trim(),
+        clientReport:lines('report'),clinicianObservation:lines('observation'),interventions:lines('interventions'),progress:lines('progress'),plan:lines('plan'),sourceRefs:lines('sources')};
+      google.script.run.withSuccessHandler(r=>{if(r.status==='disabled'){say('Draft builder is disabled.','error');button.disabled=false;return;}
+        say(`Draft ${r.draftId} saved. Opening the review checklist…`,'ok');
+        google.script.run.withSuccessHandler(()=>say(`Draft ${r.draftId} is ready for therapist review.`,'ok')).withFailureHandler(e=>say(`Draft saved. Select its row in Draft Records and choose Review selected chart draft. ${e.message||String(e)}`,'error')).mgOpenDraftForReview(r.draftId);
+      }).withFailureHandler(e=>{say(e.message||String(e),'error');button.disabled=false;}).mgBuildSessionDraft(input);
+    });
+  </script>
+</body></html>

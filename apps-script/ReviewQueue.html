@@ -1,0 +1,43 @@
+<!doctype html>
+<html>
+<head>
+  <base target="_top">
+  <style>
+    body{font:14px Arial,sans-serif;color:#182c27;margin:18px;background:#f7f7f3}
+    h2{font-size:20px;margin:0 0 6px} .hint{color:#52645e;line-height:1.45}
+    .item{background:#fff;border:1px solid #d9e0da;border-radius:10px;padding:14px;margin:12px 0}
+    .row{display:flex;gap:8px;margin-top:10px} input{flex:1;min-width:100px;padding:9px;border:1px solid #9daea4;border-radius:6px}
+    button{padding:9px 12px;border:0;border-radius:6px;background:#285f50;color:#fff;cursor:pointer}
+    a{color:#285f50} .status{font-weight:700} .error{color:#9b372b} .empty{padding:20px;background:#fff;border-radius:10px}
+  </style>
+</head>
+<body>
+  <h2>Incoming review items</h2>
+  <p class="hint">Items are matched only by an exact, unique Client ID from the form and Client Tracker. For unresolved items, open the source response, confirm identity in the clinical system, then enter the tracker ID here. Names and answers are not shown in this list.</p>
+  <div id="content">Loading…</div>
+  <script>
+    function load(){google.script.run.withSuccessHandler(render).withFailureHandler(fail).mgGetReviewQueueItems();}
+    function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+    function render(items){
+      const host=document.getElementById('content');
+      if(!items.length){host.innerHTML='<div class="empty">No open review items.</div>';return;}
+      host.innerHTML=items.map(x=>`<section class="item" data-id="${esc(x.queueId)}">
+        <div><strong>Queue item:</strong> ${esc(x.queueId)}</div>
+        <div><strong>Received:</strong> ${esc(x.timestamp||'')}</div>
+        <div><strong>Status:</strong> <span class="status">${esc(x.status)}</span></div>
+        <div><strong>Routing:</strong> ${esc(x.errorCode||'Unique ID matched')}</div>
+        <div><a href="${esc(x.sourceUrl)}" target="_blank" rel="noopener">Open source response</a></div>
+        ${x.hasRecordMatch?'':`<div class="row"><input aria-label="Client ID" placeholder="Exact Client ID from tracker"><button type="button" onclick="resolve(this)">Match record</button></div>`}
+        ${x.hasRecordMatch?`<div class="row"><button type="button" onclick="markReviewed(this,'in_review')">Start review</button><button type="button" onclick="markReviewed(this,'reviewed')">Mark reviewed</button><button type="button" onclick="markReviewed(this,'reviewed_no_chart_entry')">No chart entry needed</button></div>`:''}
+        <div class="error" role="status"></div>
+      </section>`).join('');
+    }
+    function resolve(button){const card=button.closest('.item');const id=card.dataset.id;const clientId=card.querySelector('input').value.trim();button.disabled=true;
+      google.script.run.withSuccessHandler(()=>load()).withFailureHandler(e=>{card.querySelector('.error').textContent=e.message||String(e);button.disabled=false;}).mgResolveQueueIdentity(id,clientId);}
+    function markReviewed(button,status){const card=button.closest('.item');button.disabled=true;
+      google.script.run.withSuccessHandler(()=>load()).withFailureHandler(e=>{card.querySelector('.error').textContent=e.message||String(e);button.disabled=false;}).mgSetQueueReviewStatus(card.dataset.id,status);}
+    function fail(e){document.getElementById('content').innerHTML='<p class="error">'+esc(e.message||String(e))+'</p>';}
+    load();
+  </script>
+</body>
+</html>
