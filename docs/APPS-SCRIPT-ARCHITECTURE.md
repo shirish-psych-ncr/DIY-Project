@@ -12,7 +12,7 @@ This describes the local starter source. It is not connected to the live workboo
 | `TherapistCatalog.gs` | Editable choice catalog, named ranges and explicit `Catalog Bindings` dropdown setup |
 | `Scoring.gs` | Disabled registry-based simple scoring and provenance-checked imported result route |
 | `DiagnosisSupport.gs` | Therapist-confirmed scale-summary import, optional sourced prompts and clinician-entered diagnosis workspace |
-| `DraftBuilder.gs`, `DraftRecords.gs`, `RecordTransfer.gs` | Source-labelled draft creation/storage, review checklist, explicit copy approval and manual chart-entry attestation |
+| `DraftBuilder.gs`, `DraftRecords.gs`, `RecordTransfer.gs`, `SessionDraftBuilder.html` | One-screen therapist intake/session choices, format-aware unsigned draft, review checklist, explicit copy approval and manual chart-entry attestation |
 
 ## Workbook contract
 
@@ -38,7 +38,7 @@ Diagnostic prompts use deterministic differential flags already produced by the 
 
 ## Draft and chart handoff
 
-Drafts use only therapist-supplied fields and preserve labels such as client report, clinician observation, session work, progress and plan. A clinician checks the exact draft, source references, client ID and encounter; approves a fingerprinted version; copies it manually; enters it in the verified chart; completes the clinical system's signing process; and can record an attestation. The system makes no network call and receives no EHR receipt or signature confirmation. It never claims the chart was saved based only on the attestation.
+The one-screen dialog uses therapist-catalog choices for visit metadata, intake/context domains, client-selected focus, information source, access needs, MSE observations, interventions, goal status, progress source, safety-documentation workflow and next step. Choices remain optional and narrative fields remain available. DAP, SOAP, BIRP and GIRP formatting groups therapist-entered content only; labels such as client report, observed behavior and intervention delivered remain in the body. Administrative metadata alone cannot create a note. There is no diagnosis field or automatic risk assessment. A clinician checks the exact draft, source references, client ID and encounter; approves a fingerprinted version; copies it manually; enters it in the verified chart; completes the clinical system's signing process; and can record an attestation. The system makes no network call and receives no EHR receipt or signature confirmation. It never claims the chart was saved based only on the attestation.
 
 ## Health and administration
 

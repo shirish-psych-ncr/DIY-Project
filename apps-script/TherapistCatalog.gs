@@ -9,6 +9,7 @@ const MG_CATALOG = Object.freeze({
   SOURCE_CERTAINTY: ['Client report','Informant report','Existing record reviewed','Clinician observed','Clinician hypothesis','Conflicting accounts','Not independently verified','Not assessed','Client declined/deferred','Not applicable'],
   APPEARANCE_SELF_CARE: ['Appropriate to setting','Casual attire','Formal attire','Self-care appeared maintained','Self-care appeared reduced (describe context)','Distinctive attire (describe neutrally)','Not assessed','Unable to assess','Other'],
   SESSION_FOCUS: ['Review recent events','Explore client-selected concern','Understand a pattern or trigger','Review goals','Practice/adapt a skill','Plan a manageable next step','Relationship/communication','Therapy pace or fit','Barriers/access needs','Care coordination','Supportive conversation','Assessment/feedback','Other/client-led'],
+  INTAKE_DOMAIN: ['Presenting concern and client-stated goal','Timeline, context, course and change','Prior support and current care team','Physical health and relevant treatment context','Sleep, energy, appetite and routines','Mood, worry, attention, coping and daily functioning','Relationships, family, peers and social supports','Work, study, housing and practical needs','Culture, language, identity, spirituality or community (client-defined)','Developmental, learning or neurodiversity context (when relevant)','Strengths, interests, values and meaning','Preferences, accommodations, privacy and communication needs','Safety/support discussion (clinician assessment and follow-up as indicated)','Other/client-led'],
   MSE_ENGAGEMENT: ['Engaged','Cooperative','Guarded','Reserved','Restless','Slowed','Tearful','Irritable','Distractible','Varied by topic/context','Not assessed','Unable to assess','Other'],
   MSE_SPEECH: ['Typical rate','Faster than expected for context','Slower than expected for context','Quiet','Loud','Brief responses','Increased amount','Pauses/latency','Not assessed','Unable to assess','Other'],
   MOOD_REPORTED: ['Neutral/okay','Low/sad','Anxious/worried','Irritable/frustrated','Calm/settled','Hopeful/positive','Mixed/variable','Client wording to be entered','Not assessed','Other'],
@@ -33,6 +34,28 @@ const MG_CATALOG = Object.freeze({
   DIAGNOSIS_STATUS: ['Working hypothesis','Deferred','Ruled out','Clinician confirmed','Not applicable'],
   CERTAINTY: ['Confirmed source','Client-reported','Informant-reported','Clinician observation','Working hypothesis','Unclear/needs follow-up','Not assessed','Not applicable']
 });
+
+/** Returns active neutral choices for the clinician one-screen flow. */
+function mgGetOneScreenWorkflowChoices_() {
+  const book = mgSpreadsheet_();
+  const sheet = book.getSheetByName('Therapist Catalog');
+  const choices = Object.fromEntries(Object.keys(MG_CATALOG).map(key => [key, []]));
+  if (!sheet || sheet.getLastRow() < 2) {
+    Object.keys(MG_CATALOG).forEach(key => { choices[key] = MG_CATALOG[key].slice(); });
+    return choices;
+  }
+  const rows = sheet.getRange(2,1,sheet.getLastRow()-1,MG_CATALOG_HEADERS.length).getValues();
+  rows.forEach(row => {
+    const category = String(row[0] || '').trim();
+    const choice = String(row[1] || '').trim();
+    const active = row[3] === true || String(row[3]).toUpperCase() === 'TRUE';
+    if (active && choices[category] && choice && !choices[category].includes(choice)) choices[category].push(choice);
+  });
+  Object.keys(MG_CATALOG).forEach(key => {
+    if (!choices[key].length) choices[key] = MG_CATALOG[key].slice();
+  });
+  return choices;
+}
 
 function mgSeedTherapistCatalog() {
   const book = mgSpreadsheet_();

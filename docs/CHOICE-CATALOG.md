@@ -37,6 +37,25 @@ Use these as therapist-facing choices for the existing Sheets modules. They are 
 - Interpreter/communication support present
 - Other / clarify in note
 
+## A2. Intake and context domains
+
+These choices identify what was covered, not what the therapist found. Keep client report, informant report, record review and clinician observation separately sourced; leave domains unselected when not discussed.
+
+- Presenting concern and client-stated goal
+- Timeline, context, course and change
+- Prior support and current care team
+- Physical health and relevant treatment context
+- Sleep, energy, appetite and routines
+- Mood, worry, attention, coping and daily functioning
+- Relationships, family, peers and social supports
+- Work, study, housing and practical needs
+- Culture, language, identity, spirituality or community (client-defined)
+- Developmental, learning or neurodiversity context (when relevant)
+- Strengths, interests, values and meaning
+- Preferences, accommodations, privacy and communication needs
+- Safety/support discussion (clinician assessment and follow-up as indicated)
+- Other / client-led
+
 ## B. Intake domains and source labels
 
 Use category plus source. For each item, record `Client report`, `Informant report`, `Existing record`, `Clinician observation`, `Not assessed`, or `Not applicable`.

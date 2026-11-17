@@ -80,6 +80,11 @@ for(const file of ['Config.gs','Audit.gs','IntakeRouter.gs','Notifications.gs','
   vm.runInContext(sourceText,context,{filename:file});
 }
 vm.runInContext(await readFile(path.join(root,'..','TherapistCatalog.gs'),'utf8'),context,{filename:'TherapistCatalog.gs'});
+const workflowChoices=context.mgGetOneScreenWorkflowChoices_();
+assert.ok(workflowChoices.SESSION_FOCUS.includes('Review goals'));
+assert.ok(workflowChoices.INTAKE_DOMAIN.includes('Prior support and current care team'));
+assert.ok(workflowChoices.MSE_SPEECH.includes('Not assessed'));
+assert.equal(workflowChoices.NOTE_FORMAT.includes('SOAP'),true);
 const seedResult=context.mgSeedVerifiedTemplateBindings();
 assert.equal(seedResult.added,12);
 assert.equal(seedResult.active,false);
@@ -149,6 +154,8 @@ const draftInput={requestId:'fabricated-draft-request-0001',internalRecordId:'C-
   sourceRefs:['Fabricated source A']};
 assert.equal(context.mgBuildSessionDraft(draftInput).status,'disabled');
 properties.ENABLE_DRAFT_BUILDER='true';
+assert.throws(()=>context.mgBuildSessionDraft({...draftInput,requestId:'fabricated-empty-request-0001',
+  clientReport:['Visit type: Individual'],clinicianObservation:[],interventions:[],progress:[],plan:[],sourceRefs:[]}),/draft_clinical_content_required/);
 const draftCreated=context.mgBuildSessionDraft(draftInput);
 assert.equal(draftCreated.status,'draft_requires_review');
 assert.equal(context.mgBuildSessionDraft(draftInput).duplicate,true);
@@ -157,6 +164,18 @@ const draftPayload=JSON.parse(draftRow[draftMap.draft_payload_json]);
 assert.match(draftPayload.text,/Client report\n• Fabricated report line/);
 assert.equal(draftPayload.diagnosis,null);assert.equal(draftPayload.safetyAssessment,null);
 assert.equal(draftRow[draftMap.draft_state],'draft_requires_review');
+const soapResult=context.mgBuildSessionDraft({...draftInput,requestId:'fabricated-soap-request-0001',noteFormat:'SOAP',
+  clientReport:['Client-selected focus: sleep routine'],clinicianObservation:['Speech (observed): typical rate'],
+  interventions:['Intervention actually delivered: agenda setting'],progress:['Goal status: progressing'],
+  plan:['Safety documentation workflow status: further direct assessment planned (owner/date)']});
+const soapRow=drafts.rows.find(r=>r[draftMap.draft_id]===soapResult.draftId);
+const soapPayload=JSON.parse(soapRow[draftMap.draft_payload_json]);
+assert.equal(soapPayload.noteFormat,'SOAP');
+assert.match(soapPayload.text,/Subjective\n• Client-selected focus: sleep routine/);
+assert.match(soapPayload.text,/Objective\n• Speech \(observed\): typical rate/);
+assert.match(soapPayload.text,/Assessment \(therapist-entered\)\n• Goal status: progressing/);
+assert.match(soapPayload.text,/Plan\n• Safety documentation workflow status/);
+assert.equal(soapPayload.diagnosis,null);
 const draftPreview=context.mgGetDraftPreview(draftCreated.draftId);
 assert.equal(draftPreview.reviewChecklist.length,5);
 assert.throws(()=>context.mgMarkDraftReviewed(draftCreated.draftId,undefined,draftPreview.previewToken,[true,false,true,true,true]),/draft_review_checklist_incomplete/);

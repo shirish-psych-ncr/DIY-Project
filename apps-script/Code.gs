@@ -8,7 +8,7 @@ function onOpen() {
     .addItem('Review incoming items', 'mgShowReviewQueue')
     .addItem('Import clinician-reviewed scale summary', 'mgShowAssessmentImport')
     .addItem('Review differential prompts', 'mgShowDiagnosticPromptReview')
-    .addItem('Prepare session note draft', 'mgShowSessionDraftBuilder')
+    .addItem('One-screen intake & therapy flow', 'mgShowSessionDraftBuilder')
     .addItem('Review selected chart draft', 'mgShowDraftHandoff')
     .addSeparator()
     .addItem('Create form-submit trigger', 'mgInstallFormSubmitTrigger')
@@ -89,12 +89,13 @@ function mgShowDraftHandoffById_(draftId) {
 
 function mgShowSessionDraftBuilder() {
   SpreadsheetApp.getUi().showModalDialog(HtmlService.createHtmlOutputFromFile('SessionDraftBuilder')
-    .setWidth(720).setHeight(760),'Prepare session note draft');
+    .setWidth(920).setHeight(820),'One-screen intake & therapy flow');
 }
 
 function mgGetDraftBuilderSettings(clinicianEmail) {
   mgRequireClinician_(clinicianEmail);
-  return {draftBuilderEnabled:mgFlag_('ENABLE_DRAFT_BUILDER'),chartHandoffEnabled:mgFlag_('ENABLE_MANUAL_CHART_HANDOFF')};
+  return {draftBuilderEnabled:mgFlag_('ENABLE_DRAFT_BUILDER'),chartHandoffEnabled:mgFlag_('ENABLE_MANUAL_CHART_HANDOFF'),
+    choices:mgGetOneScreenWorkflowChoices_()};
 }
 
 function mgShowDiagnosticPromptReview() {
